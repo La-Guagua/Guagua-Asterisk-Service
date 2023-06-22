@@ -1,5 +1,8 @@
-ARI_USER = 'freepbxuser'
-ARI_PWD = 'e7a88d999e5fbd678a07cf12ebfdb719'
-ARI_PORT = '8088'
-ARI_SERV = '167.172.149.70'
-APP_NAME = 'twimlcallhandler'
+from dotenv import dotenv_values
+config = dotenv_values(".env")
+
+ARI_SERV = config['ARI_SERV']
+ARI_PORT = config['ARI_PORT']
+ARI_USER = config['ARI_USER']
+ARI_PWD = config['ARI_PWD']
+APP_NAME = config['APP_NAME']
