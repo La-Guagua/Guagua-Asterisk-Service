@@ -1,0 +1,5 @@
+ARI_USER = 'freepbxuser'
+ARI_PWD = 'e7a88d999e5fbd678a07cf12ebfdb719'
+ARI_PORT = '8088'
+ARI_SERV = '167.172.149.70'
+APP_NAME = 'twimlcallhandler'
