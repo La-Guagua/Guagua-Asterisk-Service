@@ -42,6 +42,9 @@ def start( channel_id: str ):
 def status_change(status: str, channel_id: str):
     call = find_call(channel_id)
     if call:
+        if status == 'PROGRESS':
+            status = 'ringing'
+
         requests.get(call.data.status_callback, params={ "status": status })
 
 @ari_app.on_event("dtmf_received")
