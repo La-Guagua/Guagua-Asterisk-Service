@@ -96,8 +96,7 @@ class ARICHANNEL:
         self.__ari_rest.channel_play(self.data.id, media_uri)
 
     def say(self, text, attrib):
-        print("I HAVE TO SAY SOMETHING")
-        pass
+        self.run_action()
 
     def gather(self, text, attrib):
         self.waiting_gather = True
