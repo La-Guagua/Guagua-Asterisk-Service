@@ -46,6 +46,9 @@ def start( channel_id: str ):
 def status_change(status: str, channel_id: str):
     call = find_call(channel_id)
     if call:
+        if status == 'RINGING':
+            return
+
         if status == 'PROGRESS':
             status = 'ringing'
 
