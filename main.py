@@ -2,6 +2,7 @@ import requests
 from fastapi import FastAPI
 
 import models
+import helper
 from ari import ARIAPP, ARICHANNEL
 
 current_calls = {}
@@ -20,6 +21,9 @@ async def shutdown():
 
 @api.post("/call")
 async def create_call(call: models.Call):
+    if call.from_number == '0':
+        call.from_number = helper.generate_random_number(call.to_number)
+
     channel = ARICHANNEL(call)
     current_calls[ channel.data.id ] = channel
     return channel.data

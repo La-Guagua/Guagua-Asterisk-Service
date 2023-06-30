@@ -7,3 +7,5 @@ class Call(BaseModel):
     from_number: str
     action_url: str
     status_callback: str
+    class Config:
+        allow_mutation = True
