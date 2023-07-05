@@ -161,11 +161,8 @@ class ARIAPP:
         self.wst = Thread(target=self.connect)
         self.wst.start()
 
-        rel.signal(2, rel.abort)
-        rel.dispatch()
-
     def connect(self):
-        self.ws.run_forever(dispatcher=rel, reconnect=1)
+        self.ws.run_forever(reconnect=1)
 
     def destroy(self):
         self.running = False
