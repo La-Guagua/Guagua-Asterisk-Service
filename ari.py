@@ -84,6 +84,10 @@ class ARICHANNEL:
                 if not self.running:
                     break
 
+                if self.duration > 120:
+                    self.destroy()
+                    break
+
                 self.duration = self.duration + 1
                 time.sleep(1)
 
