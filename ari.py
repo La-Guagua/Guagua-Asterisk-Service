@@ -6,6 +6,7 @@ import requests
 import config
 import models
 import logging
+import rel
 from threading import Thread
 import xml.etree.ElementTree as ET
 
@@ -156,15 +157,30 @@ class ARIAPP:
 
     def __init__(self) -> None:
         url = f"ws://{config.ARI_SERV}:{config.ARI_PORT}/ari/events?app={config.APP_NAME}&api_key={config.ARI_USER}:{config.ARI_PWD}"
-        self.ws = websocket.create_connection(url)
-        self.event_thread = Thread(target = self.start_scheduler)
-        self.event_thread.start()
+        self.ws = websocket.WebSocketApp(url, on_message=self.on_message, on_open=self.on_open, on_error=self.on_error)
+        self.wst = Thread(target=self.connect)
+        self.wst.start()
+
+        rel.signal(2, rel.abort)
+        rel.dispatch()
+
+    def connect(self):
+        self.ws.run_forever(dispatcher=rel, reconnect=1)
 
     def destroy(self):
         self.running = False
         self.ws.close()
 
-    def start_scheduler(self):
+    def on_close(self, ws):
+        print("Websocket was closed")
+
+    def on_error(self, ws, err):
+        logging.error(err)
+
+    def on_open(self, ws):
+        logging.debug("STASIS APP STARTED")
+
+    def on_message(self, ws, message):
         try:
             def get_channel_event(event):
                 if "peer" in event:
@@ -176,30 +192,29 @@ class ARIAPP:
                 elif "playback" in event:
                     return event["playback"]["target_uri"].split("channel:")[1]
                 else:
-                    return None
+                    return None   
 
-            for event_str in iter(lambda: self.ws.recv(), None):
-                event = json.loads(event_str)
-                channel_id = get_channel_event(event)
+            event = json.loads(message)
+            channel_id = get_channel_event(event)
 
-                if "dialstatus" in event:
-                    self.run_event("status_change", event["dialstatus"], channel_id)
+            if "dialstatus" in event:
+                self.run_event("status_change", event["dialstatus"], channel_id)
 
-                if event['type'] == 'StasisStart':
-                    self.run_event("start", channel_id)
+            if event['type'] == 'StasisStart':
+                self.run_event("start", channel_id)
+            
+            elif event['type'] == 'ChannelDtmfReceived':
+                self.run_event("dtmf_received", channel_id, event["digit"])
+
+            elif event['type'] == 'PlaybackFinished':
+                self.run_event("payback_finished", channel_id)
                 
-                elif event['type'] == 'ChannelDtmfReceived':
-                    self.run_event("dtmf_received", channel_id, event["digit"])
-
-                elif event['type'] == 'PlaybackFinished':
-                    self.run_event("payback_finished", channel_id)
-                    
-                elif event['type'] == 'ChannelDestroyed':
-                    self.run_event("channel_destroyed", channel_id)
-                else: 
-                    with open('storage/logs/events.log', 'a') as file:
-                        file.write( str(event) )
-                        file.write( "\n===================================================\n" )
+            elif event['type'] == 'ChannelDestroyed':
+                self.run_event("channel_destroyed", channel_id)
+            else: 
+                with open('storage/logs/events.log', 'a') as file:
+                    file.write( str(event) )
+                    file.write( "\n===================================================\n" )
 
         except Exception as e:
             if not self.running:
