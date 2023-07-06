@@ -27,7 +27,7 @@ class ARIREST:
         :param to_number: The phone number that the channel will be connected to
         :param from_number: The phone number that will be displayed as the caller ID for the outgoing call
         """
-        url = f"{self.req_base}/channels/{call.id}?endpoint=PJSIP/{call.to_number}@{call.trunk}&app={config.APP_NAME}&appArgs={call.id}&callerId={call.from_number}"
+        url = f"{self.req_base}/channels/{call.id}?endpoint=PJSIP/{call.to_number}@{call.trunk}&app={config.APP_NAME}&appArgs={call.id}&callerId={call.from_number}&timeout=-1"
         res = requests.post(url, auth=(config.ARI_USER, config.ARI_PWD))
         if res.status_code == 200:
             return res.json()
