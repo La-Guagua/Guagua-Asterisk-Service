@@ -7,7 +7,7 @@ import config
 import models
 import logging
 import rel
-from threading import Thread
+from threading import Thread, Timer
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(name)s %(message)s')
@@ -15,6 +15,14 @@ logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, fo
 class ARIREST:
     def __init__(self) -> None:
         self.req_base = f"http://{config.ARI_SERV}:{config.ARI_PORT}/ari"
+
+    def get_application(self):
+        url = f"{self.req_base}/applications/{config.APP_NAME}"
+        res = requests.get(url, auth=(config.ARI_USER, config.ARI_PWD))
+        if res.status_code == 200:
+            return res.json()
+        
+        return False
 
     def create_channel(self, call: models.Call) -> object:
         """
@@ -156,21 +164,45 @@ class ARICHANNEL:
 
 class ARIAPP:
     events = {}
+    ws = False
     running: bool = True
     event_thread: Thread
 
     def __init__(self) -> None:
-        url = f"ws://{config.ARI_SERV}:{config.ARI_PORT}/ari/events?app={config.APP_NAME}&api_key={config.ARI_USER}:{config.ARI_PWD}"
-        self.ws = websocket.WebSocketApp(url, on_message=self.on_message, on_open=self.on_open, on_error=self.on_error)
-        self.wst = Thread(target=self.connect)
-        self.wst.start()
+        self.start()
+        self.checking_interval()
 
     def connect(self):
         self.ws.run_forever(reconnect=1)
 
     def destroy(self):
         self.running = False
-        self.ws.close()
+        if self.ws:
+            self.ws.close()
+
+    def start(self):
+        self.running = True
+        url = f"ws://{config.ARI_SERV}:{config.ARI_PORT}/ari/events?app={config.APP_NAME}&api_key={config.ARI_USER}:{config.ARI_PWD}"
+        self.ws = websocket.WebSocketApp(url, on_message=self.on_message, on_open=self.on_open, on_error=self.on_error)
+        self.wst = Thread(target=self.connect)
+        self.wst.start()
+
+    def reset(self):
+        self.destroy()
+        self.start()
+
+    def checking_interval(self):
+        def func_wrapper():
+            if self.running:
+                self.checking_interval()
+                ari_rest = ARIREST()
+                if not ari_rest.get_application():
+                    print( "Debo Reiniciar" )
+                    self.reset()
+
+        t = Timer(60, func_wrapper)
+        t.start()
+        return t
 
     def on_close(self, ws):
         print("Websocket was closed")
