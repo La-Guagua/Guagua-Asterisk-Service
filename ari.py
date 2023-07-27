@@ -244,10 +244,6 @@ class ARIAPP:
                 
             elif event['type'] == 'ChannelDestroyed':
                 self.run_event("channel_destroyed", channel_id)
-            else: 
-                with open('storage/logs/events.log', 'a') as file:
-                    file.write( str(event) )
-                    file.write( "\n===================================================\n" )
 
         except Exception as e:
             if not self.running:
