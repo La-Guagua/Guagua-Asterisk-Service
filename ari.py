@@ -6,7 +6,7 @@ import requests
 import config
 import models
 import logging
-import rel
+import urllib.parse
 from threading import Thread, Timer
 import xml.etree.ElementTree as ET
 
@@ -54,6 +54,7 @@ class ARIREST:
         return res.status_code == 204
     
     def channel_play(self, id, media_uri) -> bool:
+        media_uri = urllib.parse.quote(media_uri)
         url = f"{self.req_base}/channels/{id}/play?media=sound:{media_uri}"
         res = requests.post(url, auth=(config.ARI_USER, config.ARI_PWD))
         return res.status_code == 201
