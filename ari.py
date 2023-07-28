@@ -93,7 +93,7 @@ class ARICHANNEL:
                 if not self.running:
                     break
 
-                if self.duration > 120:
+                if self.duration > 180:
                     self.destroy()
                     break
 
