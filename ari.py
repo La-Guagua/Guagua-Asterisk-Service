@@ -7,7 +7,7 @@ import config
 import models
 import logging
 import traceback
-from threading import Thread, Timer
+from threading import Thread, Event
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(name)s %(message)s')
@@ -88,16 +88,12 @@ class ARICHANNEL:
     
     def start(self):
         def duration_counter():
-            while True:
-                if not self.running:
-                    break
-
-                if self.duration > 180:
+            self.duration_event = Event()
+            while not self.duration_event.wait(timeout=1):
+                if not self.running or self.duration > 180:
                     self.destroy()
                     break
-
                 self.duration = self.duration + 1
-                time.sleep(1)
 
         thread = Thread(target = duration_counter)
         thread.start()   
@@ -119,17 +115,13 @@ class ARICHANNEL:
 
         def gather_timer():
             counter = 0
-            while True:
-                if not self.running or not self.waiting_gather:
-                    break
-
+            self.gather_event = Event()
+            while not self.gather_event.wait(timeout=1):
+                counter = counter + 1
                 if counter >= int(attrib["timeout"]):
                     self.destroy()
                     break
 
-                counter = counter + 1
-                time.sleep(1)
-                
 
         thread = Thread(target = gather_timer)
         thread.start()
@@ -140,20 +132,26 @@ class ARICHANNEL:
             self.waiting_gather = False
             digits = "".join(self.gather_digits)
             self.redirect(self.gather_action, { "Digits": digits })
+            self.gather_action = ""
+            self.gather_numDigits = 1
+            self.gather_digits = []
 
     def redirect(self, action_url, attrib={}):
         self.get_actions(action_url, attrib)
         self.run_action()
     
     def get_actions(self, action_url, params={}):
-        res = requests.get(action_url, params=params)
-        if not res.status_code == 200:
-            return False
+        try:
+            res = requests.get(action_url, params=params)
+            if not res.status_code == 200:
+                return False
 
-        root = ET.fromstring(res.text)
-        self.remaining_actions = []
-        for child in root:
-            self.remaining_actions.append(child)
+            root = ET.fromstring(res.text)
+            self.remaining_actions = []
+            for child in root:
+                self.remaining_actions.append(child)
+        except Exception as e:
+            logging.error(f"Exception occurred during get actions: {e}\n{traceback.format_exc()}")
 
     def run_action(self):
         if len(self.remaining_actions) > 0:
@@ -190,8 +188,6 @@ class ARIAPP:
 
     def reset(self):
         self.destroy()
-        if self.event_thread.is_alive():  # Make sure the old thread has stopped before starting a new one
-            self.event_thread.join()
         self.start()
 
     def checking_interval(self):
