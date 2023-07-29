@@ -170,7 +170,8 @@ class ARIAPP:
 
     def __init__(self) -> None:
         self.start()
-        self.checking_interval()
+        self.event_thread = Thread(target=self.checking_interval)
+        self.event_thread.start()
 
     def connect(self):
         self.ws.run_forever(reconnect=1)
@@ -192,17 +193,12 @@ class ARIAPP:
         self.start()
 
     def checking_interval(self):
-        def func_wrapper():
-            if self.running:
-                self.checking_interval()
-                ari_rest = ARIREST()
-                if not ari_rest.get_application():
-                    print( "Debo Reiniciar" )
-                    self.reset()
-
-        t = Timer(60, func_wrapper)
-        t.start()
-        return t
+        while self.running:
+            time.sleep(60)
+            ari_rest = ARIREST()
+            if not ari_rest.get_application():
+                print( "Debo Reiniciar" )
+                self.reset()
 
     def on_close(self, ws):
         print("Websocket was closed")
@@ -217,15 +213,15 @@ class ARIAPP:
         try:
             def get_channel_event(event):
                 if "peer" in event:
-                    return event["peer"]["id"]
+                    return event["peer"].get("id")
                 elif "channel" in event:
-                    return event["channel"]["id"]
+                    return event["channel"].get("id")
                 elif "args" in event:
-                    return event["args"][0]
+                    return event.get("args")[0]
                 elif "playback" in event:
                     return event["playback"]["target_uri"].split("channel:")[1]
                 else:
-                    return None   
+                    return None 
 
             event = json.loads(message)
             channel_id = get_channel_event(event)
@@ -261,5 +257,4 @@ class ARIAPP:
             if event_name in self.events:
                 self.events[event_name](*args)
         except Exception as err:
-            logging.error(err)
-            
+            logging.error(f"Error in event '{event_name}': {err}")
