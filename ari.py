@@ -6,7 +6,7 @@ import requests
 import config
 import models
 import logging
-import urllib.parse
+import traceback
 from threading import Thread, Timer
 import xml.etree.ElementTree as ET
 
@@ -190,6 +190,8 @@ class ARIAPP:
 
     def reset(self):
         self.destroy()
+        if self.event_thread.is_alive():  # Make sure the old thread has stopped before starting a new one
+            self.event_thread.join()
         self.start()
 
     def checking_interval(self):
@@ -197,31 +199,30 @@ class ARIAPP:
             time.sleep(60)
             ari_rest = ARIREST()
             if not ari_rest.get_application():
-                print( "Debo Reiniciar" )
+                logging.info("Reseting")
                 self.reset()
 
     def on_close(self, ws):
-        print("Websocket was closed")
+        logging.info("Websocket was closed")
 
     def on_error(self, ws, err):
         logging.error(err)
 
     def on_open(self, ws):
-        logging.debug("STASIS APP STARTED")
+        logging.info("STASIS APP STARTED")
 
     def on_message(self, ws, message):
         try:
             def get_channel_event(event):
-                if "peer" in event:
-                    return event["peer"].get("id")
-                elif "channel" in event:
-                    return event["channel"].get("id")
-                elif "args" in event:
-                    return event.get("args")[0]
-                elif "playback" in event:
-                    return event["playback"]["target_uri"].split("channel:")[1]
-                else:
-                    return None 
+                for key in ['peer', 'channel', 'args', 'playback']:
+                    if key in event:
+                        if key == 'peer' or key == 'channel':
+                            return event[key].get("id")
+                        elif key == 'args':
+                            return event.get("args")[0]
+                        elif key == 'playback':
+                            return event["playback"]["target_uri"].split("channel:")[1]
+                return None
 
             event = json.loads(message)
             channel_id = get_channel_event(event)
@@ -245,7 +246,8 @@ class ARIAPP:
             if not self.running:
                 return
 
-            logging.error(e)
+            logging.error(f"Exception occurred: {e}\n{traceback.format_exc()}")
+
 
     def on_event(self, event_name):
         def decorator_event(func):
@@ -257,4 +259,5 @@ class ARIAPP:
             if event_name in self.events:
                 self.events[event_name](*args)
         except Exception as err:
-            logging.error(f"Error in event '{event_name}': {err}")
+            logging.error(f"Error in event '{event_name}': {err}\n{traceback.format_exc()}")
+
