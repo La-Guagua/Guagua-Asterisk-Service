@@ -7,6 +7,7 @@ import config
 import models
 import logging
 import traceback
+from requests.auth import HTTPBasicAuth
 from threading import Thread, Event
 import xml.etree.ElementTree as ET
 
@@ -15,48 +16,48 @@ logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, fo
 class ARIREST:
     def __init__(self) -> None:
         self.req_base = f"http://{config.ARI_SERV}:{config.ARI_PORT}/ari"
+        self.session = requests.Session()  # Create a Session instance
+        self.session.auth = HTTPBasicAuth(config.ARI_USER, config.ARI_PWD)  # Set up basic authentication
 
     def get_application(self):
         url = f"{self.req_base}/applications/{config.APP_NAME}"
-        res = requests.get(url, auth=(config.ARI_USER, config.ARI_PWD))
-        if res.status_code == 200:
+        try:
+            res = self.session.get(url)
+            res.raise_for_status()
             return res.json()
-        
-        return False
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Exception occurred during get application: {e}")
+            return False
 
     def create_channel(self, call: models.Call) -> object:
-        """
-        This function creates a channel using the given trunk, to_number, and from_number and stores it in a
-        dictionary.
-        
-        :param trunk: The trunk parameter is a string that represents the name of the trunk that the call
-        will be routed through. A trunk is a communication line that connects a PBX (Private Branch
-        Exchange) to the PSTN (Public Switched Telephone Network) or to another PBX
-        :param to_number: The phone number that the channel will be connected to
-        :param from_number: The phone number that will be displayed as the caller ID for the outgoing call
-        """
         url = f"{self.req_base}/channels/{call.id}?endpoint=PJSIP/{call.to_number}@{call.trunk}&app={config.APP_NAME}&appArgs={call.id}&callerId={call.from_number}&timeout=-1"
-        res = requests.post(url, auth=(config.ARI_USER, config.ARI_PWD))
-        if res.status_code == 200:
+        try:
+            res = self.session.post(url)
+            res.raise_for_status()
             return res.json()
-
-        return False
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Exception occurred during create channel: {e}")
+            return False
 
     def destroy_channel(self, id) -> bool:
-        """
-        This function sends a DELETE request to the Asterisk API to destroy a channel with the given ID and
-        prints the response if the request is successful.
-        
-        :param id: The ID of the channel that needs to be destroyed
-        """
         url = f"{self.req_base}/channels/{id}"
-        res = requests.delete(url, auth=(config.ARI_USER, config.ARI_PWD))
-        return res.status_code == 204
+        try:
+            res = self.session.delete(url)
+            res.raise_for_status()
+            return True
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Exception occurred during destroy channel: {e}")
+            return False
     
     def channel_play(self, id, media_uri) -> bool:
         url = f"{self.req_base}/channels/{id}/play?media=sound:{media_uri}"
-        res = requests.post(url, auth=(config.ARI_USER, config.ARI_PWD))
-        return res.status_code == 201
+        try:
+            res = self.session.post(url)
+            res.raise_for_status()
+            return True
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Exception occurred during channel play: {e}")
+            return False
 
 class ARICHANNEL:
     data: models.Call
@@ -120,6 +121,9 @@ class ARICHANNEL:
                 counter = counter + 1
                 if counter >= int(attrib["timeout"]):
                     self.destroy()
+                    break
+
+                if not self.waiting_gather:
                     break
 
 
