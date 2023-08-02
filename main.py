@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 
 import models
 import helper
-from ari import ARIAPP, ARICHANNEL
+from ari import ARIAPP, ARICHANNEL, ARIREST
 
 current_calls = {}
 
@@ -31,11 +31,12 @@ async def create_call(call: models.Call):
 
 @api.delete("/call/{call_id}")
 async def delete_call(call_id: str):
-    call = find_call(call_id)
-    if call:
-        call.destroy()
-    else:
-        raise HTTPException(status_code=404, detail="Call not found")
+    try:
+        ari_res = ARIREST()
+        ari_res.destroy_channel(call_id)
+
+    except:
+        pass
 
     return "*ok*"
 

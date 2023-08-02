@@ -7,7 +7,7 @@ import config
 import models
 import logging
 import traceback
-import asyncio
+import random
 from datetime import datetime
 from requests.auth import HTTPBasicAuth
 from threading import Thread, Timer
@@ -15,8 +15,7 @@ import xml.etree.ElementTree as ET
 
 logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
+config.APP_NAME = config.APP_NAME+str( random.randint(1, 100) )
 
 class ARIREST:
     def __init__(self) -> None:
@@ -178,6 +177,7 @@ class ARIAPP:
 
     def start(self):
         self.running = True
+        print("Stasis App Started ", config.APP_NAME)
         url = f"ws://{config.ARI_SERV}:{config.ARI_PORT}/ari/events?app={config.APP_NAME}&api_key={config.ARI_USER}:{config.ARI_PWD}"
         self.ws = websocket.WebSocketApp(url, on_message=self.on_message, on_open=self.on_open, on_error=self.on_error)
         self.wst = Thread(target=self.connect)
