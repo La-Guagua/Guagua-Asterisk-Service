@@ -7,12 +7,16 @@ import config
 import models
 import logging
 import traceback
+import asyncio
 from datetime import datetime
 from requests.auth import HTTPBasicAuth
-from threading import Thread, Event
+from threading import Thread, Timer
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(filename='./storage/logs/error.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 class ARIREST:
     def __init__(self) -> None:
@@ -68,6 +72,7 @@ class ARICHANNEL:
     answer_datetime: datetime = False
     hangout_datetime: datetime = False
 
+    gather_timer: Timer = None
     waiting_gather = False
     gather_action = ""
     gather_numDigits = 1
@@ -113,33 +118,23 @@ class ARICHANNEL:
         self.gather_numDigits = int(attrib["numDigits"])
         self.gather_digits = []
 
-        def gather_timer():
-            counter = 0
-            self.gather_event = Event()
-            while not self.gather_event.wait(timeout=1) and self.running:
-                counter = counter + 1
-                if counter >= int(attrib["timeout"]):
-                    self.destroy()
-                    break
+        def gather_timeout():
+            self.destroy()
 
-                if not self.waiting_gather:
-                    break
-
-
-        thread = Thread(target = gather_timer)
-        thread.start()
+        self.gather_timer = Timer( int(attrib["timeout"]), gather_timeout )
+        self.gather_timer.start()
 
     def set_gather(self, digit):
         self.gather_digits.append(digit)
         if len(self.gather_digits) == self.gather_numDigits:
-            self.waiting_gather = False
+            self.gather_timer.cancel()
             digits = "".join(self.gather_digits)
             self.redirect(self.gather_action, { "Digits": digits })
             self.gather_action = ""
             self.gather_numDigits = 1
             self.gather_digits = []
 
-    def redirect(self, action_url, attrib={}):
+    def redirect(self, action_url, attrib={}): 
         self.get_actions(action_url, attrib)
         self.run_action()
     
