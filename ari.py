@@ -7,6 +7,7 @@ import config
 import models
 import logging
 import traceback
+from datetime import datetime
 from requests.auth import HTTPBasicAuth
 from threading import Thread, Event
 import xml.etree.ElementTree as ET
@@ -64,6 +65,9 @@ class ARICHANNEL:
     running: bool = True
     duration: int = 0
 
+    answer_datetime: datetime = False
+    hangout_datetime: datetime = False
+
     waiting_gather = False
     gather_action = ""
     gather_numDigits = 1
@@ -83,22 +87,17 @@ class ARICHANNEL:
 
     def destroy(self) -> bool:
         self.running = False
+        self.hangout_datetime = datetime.now()
+        if self.answer_datetime:
+            duration = (self.hangout_datetime - self.answer_datetime).total_seconds()
+            self.duration = int( duration + 1 )
+
         if hasattr(self.data, "id"):
             return self.__ari_rest.destroy_channel(self.data.id)
         return False
     
-    def start(self):
-        def duration_counter():
-            self.duration_event = Event()
-            while not self.duration_event.wait(timeout=1):
-                if not self.running or self.duration > 180:
-                    self.destroy()
-                    break
-                self.duration = self.duration + 1
-
-        thread = Thread(target = duration_counter)
-        thread.start()   
-     
+    def start(self):     
+        self.answer_datetime = datetime.now()
         self.get_actions(self.data.action_url)
         self.run_action()                
 
@@ -117,7 +116,7 @@ class ARICHANNEL:
         def gather_timer():
             counter = 0
             self.gather_event = Event()
-            while not self.gather_event.wait(timeout=1):
+            while not self.gather_event.wait(timeout=1) and self.running:
                 counter = counter + 1
                 if counter >= int(attrib["timeout"]):
                     self.destroy()
@@ -182,6 +181,7 @@ class ARIAPP:
         self.running = False
         if self.ws:
             self.ws.close()
+            self.wst.join()
 
     def start(self):
         self.running = True
@@ -192,7 +192,6 @@ class ARIAPP:
 
     def reset(self):
         self.destroy()
-        self.start()
 
     def checking_interval(self):
         while self.running:

@@ -77,6 +77,7 @@ def channel_destroyed(channel_id: str):
     call = find_call(channel_id)
     if call:
         call.destroy()
+
         try:
             requests.get(call.data.status_callback, params={ "status": "COMPLETED", "CallDuration": call.duration })
         except requests.exceptions.RequestException as e:
