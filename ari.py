@@ -166,8 +166,6 @@ class ARIAPP:
 
     def __init__(self) -> None:
         self.start()
-        self.event_thread = Thread(target=self.checking_interval)
-        self.event_thread.start()
 
     def connect(self):
         self.ws.run_forever(reconnect=1)
@@ -187,14 +185,6 @@ class ARIAPP:
 
     def reset(self):
         self.destroy()
-
-    def checking_interval(self):
-        while self.running:
-            time.sleep(60)
-            ari_rest = ARIREST()
-            if not ari_rest.get_application():
-                logging.info("Reseting")
-                self.reset()
 
     def on_close(self, ws):
         logging.info("Websocket was closed")
